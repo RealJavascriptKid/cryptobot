@@ -1,0 +1,1 @@
+const CryptoBot = require('./CryptoBot')
