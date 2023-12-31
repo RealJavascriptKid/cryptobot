@@ -15,16 +15,26 @@ class CryptoBot{
           
       }
 
-      async buy(){
+      /**
+       * 
+       * @param {number} qty 
+       */
+      async buy(qty){
 
         
 
       }
 
-      async sell(){
+      /**
+       * 
+       * @param {number} qty 
+       */
+      async sell(qty){
 
 
       }
 
 
 }
+
+module.exports = CryptoBot;

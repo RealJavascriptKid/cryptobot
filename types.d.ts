@@ -1,0 +1,2 @@
+
+type CryptoBot = import('./CryptoBot');
