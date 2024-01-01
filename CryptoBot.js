@@ -9,18 +9,18 @@ class CryptoBot{
         this.coin = params.coin || 'BTC';
         this.balance = 0;
         this._sleepTime = params.sleepTime;
+
+        this.exchange = new this.ccxt.binance({
+            apiKey: params.apiKey,
+            api_key: params.apiKey,
+            secret: params.secret,
+        });
        
         this.mockMode = (params.mockMode == true); 
 
         if(this.mockMode){
              let MockExchange = require('./MockExchange')
             this.exchange = new MockExchange({
-                apiKey: params.apiKey,
-                api_key: params.apiKey,
-                secret: params.secret,
-            });
-        }else{
-            this.exchange = new this.ccxt.binance({
                 apiKey: params.apiKey,
                 api_key: params.apiKey,
                 secret: params.secret,
