@@ -8,6 +8,18 @@ class CryptoBot{
         
         this.coin = params.coin || 'BTC';
         this.balance = 0;
+        this.moneyToTrade = params.moneyToTrade;
+
+        this.lastprice = null;
+        /** @type {BotTransactionType} */
+        this.lastTransactionType = ''; //should be either "buy" or "sell"
+
+        this.minPercentIncreaseBeforeBuy = params.minPercentIncreaseBeforeBuy | 1;
+        this.minPercentDecreaseBeforeSell = params.minPercentDecreaseBeforeSell | 1;
+
+        if(this.minPercentDecreaseBeforeSell > 0)
+            this.minPercentDecreaseBeforeSell = this.minPercentDecreaseBeforeSell * (-1)
+
         this._sleepTime = params.sleepTime;
 
         this.exchange = new this.ccxt.binance({
@@ -19,6 +31,7 @@ class CryptoBot{
         this.mockMode = (params.mockMode == true); 
 
         if(this.mockMode){
+             this._sleepTime = 15;
              let MockExchange = require('./MockExchange')
             this.exchange = new MockExchange({
                 apiKey: params.apiKey,
@@ -38,27 +51,71 @@ class CryptoBot{
           
       }
 
+      getPriceChangePercent(price){
+         if(price == this.lastprice)
+            return 0;
+
+        let changedAmount = price - this.lastprice;
+        // 1100 - 1000 = 100; (100/1000) * 100
+        if(this.lastprice === 0)
+           return 0;
+
+        return (changedAmount/this.lastprice) * 100;
+        
+      }
+
       async getBalance(){
         let balance = await this.exchange.fetchBalance();
+        
         return balance[this.coin]; //  to get all
       }
 
       /**
        * 
-       * @param {number} qty 
+       * @param {number} currentPrice
+       * @param {boolean} [ignorePercentChange] 
        */
-      async buy(qty){
+      async tryBuyingAt(currentPrice,ignorePercentChange = false){
 
+          if(this.lastTransactionType == "buy"){
+             console.log(`since last transaction was buy so holding currentPrice => ${currentPrice} My BTC balance:${this.exchange.coinBalance} `)
+             return;
+          }
+
+          let percentChange = this.getPriceChangePercent(currentPrice)
         
+          if(ignorePercentChange || percentChange >= this.minPercentIncreaseBeforeBuy){
+
+               await this.exchange.createMarketBuyOrder(`${this.coin}/USDT`,this.moneyToTrade)
+               this.lastTransactionType = 'buy'
+               this.balance = await this.getBalance();
+               console.log(`My Balance:${this.balance},Bought ${this.moneyToTrade} At BTC Price:${currentPrice}. Current USDT:${this.exchange.usdBalance}`)
+               this.lastprice = currentPrice;
+          }
 
       }
 
       /**
        * 
-       * @param {number} qty 
+       * @param {number} currentPrice 
        */
-      async sell(qty){
+      async trySellingAt(currentPrice){
 
+        if(this.lastTransactionType == "sell"){
+            console.log(`since last transaction was sell so holding currentPrice => ${currentPrice} My BTC balance:${this.exchange.coinBalance}`)
+            return;
+         }
+
+         let percentChange = this.getPriceChangePercent(currentPrice)
+       
+         if(percentChange <= this.minPercentDecreaseBeforeSell){
+
+              this.balance = await this.getBalance();
+              await this.exchange.createMarketSellOrder(`${this.coin}/USDT`,this.balance)
+              this.lastTransactionType = 'sell'
+              console.log(`My Balance:${this.balance},Sold ${this.balance} At BTC Price:${currentPrice}. Current USDT:${this.exchange.usdBalance}`)
+              this.lastprice = currentPrice;
+         }
 
       }
 
@@ -77,6 +134,23 @@ class CryptoBot{
           while(true){
 
                 let price = await this.getCurrentPrice();
+                
+                if(this.lastprice == null){
+                   
+                    await this.tryBuyingAt(price,true); //first time so just buy
+                    continue;
+                }
+                    
+
+
+                if(price > this.lastprice)
+                    await this.tryBuyingAt(price);
+                else if(price < this.lastprice)
+                    await this.trySellingAt(price)
+
+               
+
+                
 
                 await this._wait(this._sleepTime)
 

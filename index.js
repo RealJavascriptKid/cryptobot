@@ -12,6 +12,9 @@ require('dotenv').config();
         coin: 'BTC', //coin to trade
         apiKey: process.env.BINANCE_API_KEY,
         secret: process.env.BINANCE_SECRET,
+        minPercentIncreaseBeforeBuy:0.01, 
+        minPercentDecreaseBeforeSell:0.01,
+        moneyToTrade:100, //money in USD to trade with
     });
 
     await bot.start()

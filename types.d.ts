@@ -1,6 +1,8 @@
 
 type CryptoBot = import('./CryptoBot');
 
+type BotTransactionType = "sell" | "buy";
+
 interface BotStartParams {
     /** coin [optional] default value is BTC */
     coin?: string;
@@ -13,5 +15,9 @@ interface BotStartParams {
     
     /** If true then MockExchange will run which is useful for debugging and controlling application the way you want */
     mockMode?: boolean;
+
+    minPercentIncreaseBeforeBuy?:number;
+    minPercentDecreaseBeforeSell?:number;
+    moneyToTrade:number;
 
 }
