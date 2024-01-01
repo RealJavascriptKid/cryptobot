@@ -40,8 +40,7 @@ class CryptoBot{
 
       async getBalance(){
         let balance = await this.exchange.fetchBalance();
-        var totalBalance = balance.total;
-        return totalBalance[this.coin]; //  to get all
+        return balance[this.coin]; //  to get all
       }
 
       /**
@@ -71,12 +70,9 @@ class CryptoBot{
 
      
       async start(){
+                  
 
-                   
-
-         // this.balance = await this.getBalance();
-
-         
+          this.balance = await this.getBalance();
 
           while(true){
 
