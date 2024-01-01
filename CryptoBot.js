@@ -1,17 +1,17 @@
 class CryptoBot{
     constructor(){
         this.ccxt = require('ccxt');
+        this.balance = 0;
+        this.exchange = new this.ccxt.binance();
     }
 
-    async fetchCoinbaseTicker(symbol = 'BTC/USDT') {
+    async getTicker(symbol = 'BTC/USDT') {
    
-        // Create an instance of the Coinbase exchange
-        const exchange = new this.ccxt.coinbase();
-    
         // Fetch ticker for BTC/USD pair
-        const ticker = await exchange.fetchTicker(symbol);
+        const ticker = await this.exchange.fetchTicker(symbol);
         
         // Display the ticker data
+        return ticker;
           
       }
 
@@ -33,6 +33,8 @@ class CryptoBot{
 
 
       }
+
+      
 
 
 }
