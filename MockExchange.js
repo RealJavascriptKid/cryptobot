@@ -23,7 +23,7 @@ class MockExchange{
      }
 
      _updatePercentValue(originalVal,percentChange){
-        return (originalVal/100)*percentChange;
+        return originalVal + ((originalVal/100)*percentChange);
      }
 
     /** @returns {import("ccxt").Ticker} */
@@ -31,6 +31,10 @@ class MockExchange{
 
         if(this._currentIdx < this.coinData.length)
             this._currentIdx++;
+        else{
+            console.log(`USDT: ${this.usdBalance} BTC:${this.coinBalance}`)
+            process.exit();
+        }
 
         let currentPrice = this.coinData[this._currentIdx].p;
 

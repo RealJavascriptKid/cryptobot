@@ -14,8 +14,8 @@ class CryptoBot{
         /** @type {BotTransactionType} */
         this.lastTransactionType = ''; //should be either "buy" or "sell"
 
-        this.minPercentIncreaseBeforeBuy = params.minPercentIncreaseBeforeBuy | 1;
-        this.minPercentDecreaseBeforeSell = params.minPercentDecreaseBeforeSell | 1;
+        this.minPercentIncreaseBeforeBuy = params.minPercentIncreaseBeforeBuy;
+        this.minPercentDecreaseBeforeSell = params.minPercentDecreaseBeforeSell;
 
         if(this.minPercentDecreaseBeforeSell > 0)
             this.minPercentDecreaseBeforeSell = this.minPercentDecreaseBeforeSell * (-1)
