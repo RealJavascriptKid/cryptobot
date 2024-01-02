@@ -31,7 +31,7 @@ class CryptoBot{
         this.mockMode = (params.mockMode == true); 
 
         if(this.mockMode){
-             this._sleepTime = 2;
+             this._sleepTime = 0;
              let MockExchange = require('./MockExchange')
             this.exchange = new MockExchange({
                 apiKey: params.apiKey,
@@ -151,8 +151,8 @@ class CryptoBot{
                
 
                 
-
-                //await this._wait(this._sleepTime)
+                if(!this.mockMode)
+                    await this._wait(this._sleepTime)
 
           }
 
