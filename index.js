@@ -14,7 +14,7 @@ require('dotenv').config();
         secret: process.env.BINANCE_SECRET,
         minPercentIncreaseBeforeBuy:0.01, 
         minPercentDecreaseBeforeSell:0.01,
-        moneyToTrade:100, //money in USD to trade with
+        moneyToTrade:50, //money in USD to trade with
     });
 
     await bot.start()

@@ -31,7 +31,7 @@ class CryptoBot{
         this.mockMode = (params.mockMode == true); 
 
         if(this.mockMode){
-             this._sleepTime = 15;
+             this._sleepTime = 2;
              let MockExchange = require('./MockExchange')
             this.exchange = new MockExchange({
                 apiKey: params.apiKey,
@@ -78,7 +78,7 @@ class CryptoBot{
       async tryBuyingAt(currentPrice,ignorePercentChange = false){
 
           if(this.lastTransactionType == "buy"){
-             console.log(`since last transaction was buy so holding currentPrice => ${currentPrice} My BTC balance:${this.exchange.coinBalance} `)
+             //console.log(`since last transaction was buy so holding currentPrice => ${currentPrice} My BTC balance:${this.exchange.coinBalance} `)
              return;
           }
 
@@ -89,7 +89,7 @@ class CryptoBot{
                await this.exchange.createMarketBuyOrder(`${this.coin}/USDT`,this.moneyToTrade)
                this.lastTransactionType = 'buy'
                this.balance = await this.getBalance();
-               console.log(`My Balance:${this.balance},Bought ${this.moneyToTrade} At BTC Price:${currentPrice}. Current USDT:${this.exchange.usdBalance}`)
+               console.log(`Bought ${this.moneyToTrade} At BTC Price:${currentPrice}. My Balance:${this.balance}, BTC:${this.exchange.coinBalance} USDT:${this.exchange.usdBalance}`,new Date(this.exchange._lastPriceTimestamp * 1000))
                this.lastprice = currentPrice;
           }
 
@@ -102,7 +102,7 @@ class CryptoBot{
       async trySellingAt(currentPrice){
 
         if(this.lastTransactionType == "sell"){
-            console.log(`since last transaction was sell so holding currentPrice => ${currentPrice} My BTC balance:${this.exchange.coinBalance}`)
+            //console.log(`since last transaction was sell so holding currentPrice => ${currentPrice} My BTC balance:${this.exchange.coinBalance}`)
             return;
          }
 
@@ -113,7 +113,7 @@ class CryptoBot{
               this.balance = await this.getBalance();
               await this.exchange.createMarketSellOrder(`${this.coin}/USDT`,this.balance)
               this.lastTransactionType = 'sell'
-              console.log(`My Balance:${this.balance},Sold ${this.balance} At BTC Price:${currentPrice}. Current USDT:${this.exchange.usdBalance}`)
+              console.log(`Sold ${this.moneyToTrade} At BTC Price:${currentPrice}. My Balance:${this.balance}, BTC:${this.exchange.coinBalance} USDT:${this.exchange.usdBalance}`,new Date(this.exchange._lastPriceTimestamp * 1000))
               this.lastprice = currentPrice;
          }
 
@@ -152,7 +152,7 @@ class CryptoBot{
 
                 
 
-                await this._wait(this._sleepTime)
+                //await this._wait(this._sleepTime)
 
           }
 
