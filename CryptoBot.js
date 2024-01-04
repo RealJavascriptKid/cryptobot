@@ -1,164 +1,162 @@
-class CryptoBot{
-     /**
-       * 
-       * @param {BotStartParams} params 
-       */
-    constructor(params){
-        this.ccxt = require('ccxt');
-        
-        this.coin = params.coin || 'BTC';
-        this.balance = 0;
-        this.moneyToTrade = params.moneyToTrade;
+const fs = require('fs').promises;
 
-        this.lastprice = null;
-        /** @type {BotTransactionType} */
-        this.lastTransactionType = ''; //should be either "buy" or "sell"
+// Fake exchange class for simulation mode
+class FakeExchange {
+  constructor(dataFile) {
+    this.dataFile = dataFile;
+    this.currentIndex = 0;
+    this.data = null;
+    this.btcBalance = 0; // Initial BTC balance
+    this.usdtBalance = 1000; // Initial USDT balance (just an example)
+  }
 
-        this.minPercentIncreaseBeforeBuy = params.minPercentIncreaseBeforeBuy;
-        this.minPercentDecreaseBeforeSell = params.minPercentDecreaseBeforeSell;
+  async loadPriceData() {
+    const rawData = await fs.readFile(this.dataFile);
+    this.data = JSON.parse(rawData).data;
+  }
 
-        if(this.minPercentDecreaseBeforeSell > 0)
-            this.minPercentDecreaseBeforeSell = this.minPercentDecreaseBeforeSell * (-1)
-
-        this._sleepTime = params.sleepTime;
-
-        this.exchange = new this.ccxt.binance({
-            apiKey: params.apiKey,
-            api_key: params.apiKey,
-            secret: params.secret,
-        });
-       
-        this.mockMode = (params.mockMode == true); 
-
-        if(this.mockMode){
-             this._sleepTime = 0;
-             let MockExchange = require('./MockExchange')
-            this.exchange = new MockExchange({
-                apiKey: params.apiKey,
-                api_key: params.apiKey,
-                secret: params.secret,
-            });
-        }
+  async fetchTicker(symbol) {
+    if (!this.data) {
+      await this.loadPriceData();
     }
 
-    async getCurrentPrice() {
-   
-        // Fetch ticker for BTC/USD pair
-        let ticker = await this.exchange.fetchTicker(`${this.coin}/USDT`);
-        
-        // Display the ticker data
-        return ticker.last;
-          
-      }
+    if (this.currentIndex >= this.data.length) {
+        const sellValue = this.btcBalance * this.lastTickerData.bid; //temporary
+        this.usdtBalance += sellValue;
+      //throw new Error('End of price data reached ' + this.usdtBalance);
+        console.log("end of data", `${this.usdtBalance}USDT, ${this.btcBalance}BTC`)
+        return process.exit();
+    }
 
-      getPriceChangePercent(price){
-         if(price == this.lastprice)
-            return 0;
+    const tickerData = this.data[this.currentIndex];
+    this.currentIndex++;
 
-        let changedAmount = price - this.lastprice;
-        // 1100 - 1000 = 100; (100/1000) * 100
-        if(this.lastprice === 0)
-           return 0;
+    this.lastTickerData = {
+      bid: tickerData.p, // tickerData.bid,
+      ask: tickerData.p, // tickerData.ask,
+      time: tickerData.t,
+    };
+    return this.lastTickerData;
+  }
 
-        return (changedAmount/this.lastprice) * 100;
-        
-      }
+  async fetchBalance() {
+    return {
+      free: {
+        BTC: this.btcBalance,
+        USDT: this.usdtBalance,
+        _time: JSON.stringify(new Date(this.lastTickerData.time * 1000)),
+      },
+    };
+  }
 
-      async getBalance(){
-        let balance = await this.exchange.fetchBalance();
-        
-        return balance[this.coin]; //  to get all
-      }
+  async createMarketSellOrder(symbol, amount) {
+    const currentPrice = await this.fetchTicker(symbol);
+    const sellValue = amount * currentPrice.bid;
 
-      /**
-       * 
-       * @param {number} currentPrice
-       * @param {boolean} [ignorePercentChange] 
-       */
-      async tryBuyingAt(currentPrice,ignorePercentChange = false){
+    if (this.btcBalance >= amount) {
+      this.btcBalance -= amount;
+      this.usdtBalance += sellValue;
+      return { amount, price: currentPrice.bid };
+    } else {
+      throw new Error('Insufficient BTC balance');
+    }
+  }
 
-          if(this.lastTransactionType == "buy"){
-             //console.log(`since last transaction was buy so holding currentPrice => ${currentPrice} My BTC balance:${this.exchange.coinBalance} `)
-             return;
-          }
+  async createMarketBuyOrder(symbol, amount) {
+    const currentPrice = await this.fetchTicker(symbol);
+    const buyValue = amount * currentPrice.ask;
 
-          let percentChange = this.getPriceChangePercent(currentPrice)
-        
-          if(ignorePercentChange || percentChange >= this.minPercentIncreaseBeforeBuy){
-
-               await this.exchange.createMarketBuyOrder(`${this.coin}/USDT`,this.moneyToTrade)
-               this.lastTransactionType = 'buy'
-               this.balance = await this.getBalance();
-               console.log(`Bought ${this.moneyToTrade} At BTC Price:${currentPrice}. My Balance:${this.balance}, BTC:${this.exchange.coinBalance} USDT:${this.exchange.usdBalance}`,new Date(this.exchange._lastPriceTimestamp * 1000))
-               this.lastprice = currentPrice;
-          }
-
-      }
-
-      /**
-       * 
-       * @param {number} currentPrice 
-       */
-      async trySellingAt(currentPrice){
-
-        if(this.lastTransactionType == "sell"){
-            //console.log(`since last transaction was sell so holding currentPrice => ${currentPrice} My BTC balance:${this.exchange.coinBalance}`)
-            return;
-         }
-
-         let percentChange = this.getPriceChangePercent(currentPrice)
-       
-         if(percentChange <= this.minPercentDecreaseBeforeSell){
-
-              this.balance = await this.getBalance();
-              await this.exchange.createMarketSellOrder(`${this.coin}/USDT`,this.balance)
-              this.lastTransactionType = 'sell'
-              console.log(`Sold ${this.moneyToTrade} At BTC Price:${currentPrice}. My Balance:${this.balance}, BTC:${this.exchange.coinBalance} USDT:${this.exchange.usdBalance}`,new Date(this.exchange._lastPriceTimestamp * 1000))
-              this.lastprice = currentPrice;
-         }
-
-      }
-
-      async _wait(timeout){
-          return new Promise((res) => {
-                setTimeout(res,timeout)
-          })
-      }
-
-     
-      async start(){
-                  
-
-          this.balance = await this.getBalance();
-
-          while(true){
-
-                let price = await this.getCurrentPrice();
-                
-                if(this.lastprice == null){
-                   
-                    await this.tryBuyingAt(price,true); //first time so just buy
-                    continue;
-                }
-                    
-
-
-                if(price > this.lastprice)
-                    await this.tryBuyingAt(price);
-                else if(price < this.lastprice)
-                    await this.trySellingAt(price)
-
-               
-
-                
-                if(!this.mockMode)
-                    await this._wait(this._sleepTime)
-
-          }
-
-      }
-
-
+    if (this.usdtBalance >= buyValue) {
+      this.usdtBalance -= buyValue;
+      this.btcBalance += amount;
+      return { amount, price: currentPrice.ask };
+    } else {
+      throw new Error('Insufficient USDT balance');
+    }
+  }
 }
 
-module.exports = CryptoBot;
+// Usage example:
+module.exports = async function tradeBot() {
+  const MaxAmountToTrade = 50,
+        StopLossAmount = 2,
+        MaxCandlesToRiseBeforeRebuy = 1;
+
+  const exchange = new FakeExchange('btc-1min-data.json'); // Replace with your JSON file name
+
+   // Fetch BTC/USDT symbol for trading
+   const symbol = 'BTC/USDT';
+   let consecutiveRises = 0; // Counter for consecutive price rises
+ 
+   try {
+
+    let lastBuyPrice = 0,lastSellPrice = 0;
+
+     // Check BTC price and buy $MaxAmountToTrade worth of BTC
+     let btcPrice = await exchange.fetchTicker(symbol);
+     let btcAmountToBuy = MaxAmountToTrade / btcPrice.ask;
+     let buyOrder = await exchange.createMarketBuyOrder(symbol, btcAmountToBuy);
+ 
+     lastBuyPrice = buyOrder.price;
+     console.log('Bought BTC:', buyOrder);
+ 
+     // Calculate stop-loss threshold
+     let stopLossPrice = btcPrice.bid - StopLossAmount;
+
+   
+ 
+     // Infinite while loop for continuous trading
+     while (true) {
+       //await new Promise(resolve => setTimeout(resolve, 5000)); // Wait for 5 seconds
+ 
+       let currentBtcPrice = await exchange.fetchTicker(symbol);
+       let balance = await exchange.fetchBalance();
+       let btcHolding = balance.free.BTC || 0;
+ 
+       // Check for stop-loss condition
+       if (currentBtcPrice.bid <= stopLossPrice) {
+          
+         // Exchange all BTC holdings to USDT due to stop-loss
+         let sellOrder = await exchange.createMarketSellOrder(symbol, btcHolding);
+         
+         lastSellPrice = sellOrder.price;
+         let profit = lastSellPrice - lastBuyPrice;
+         console.log('Sold BTC due to stop-loss:', sellOrder,`${exchange.usdtBalance}USDT, ${exchange.btcBalance}BTC Profit: ${profit}USDT`);
+ 
+         // Reset consecutiveRises counter after selling BTC due to stop-loss
+         consecutiveRises = 0;
+ 
+         // Update BTC price for comparison in the next iteration
+         btcPrice = currentBtcPrice;
+ 
+         // Recalculate stop-loss threshold after selling due to stop-loss
+         stopLossPrice = btcPrice.bid - StopLossAmount;
+       } else {
+         // BTC price is rising
+         consecutiveRises++;
+ 
+         // Check for two consecutive price rises
+         if (consecutiveRises === MaxCandlesToRiseBeforeRebuy && btcHolding == 0) {
+           let btcAmountToBuy = MaxAmountToTrade / currentBtcPrice.ask;
+           let buyOrder = await exchange.createMarketBuyOrder(symbol, btcAmountToBuy);
+           
+           lastBuyPrice = buyOrder.price;
+           console.log('Bought BTC again:', buyOrder,`${exchange.usdtBalance}USDT, ${exchange.btcBalance}BTC`);
+ 
+           // Reset consecutiveRises counter after buying BTC
+           consecutiveRises = 0;
+ 
+           // Update BTC price after buying for comparison in the next iteration
+           btcPrice = currentBtcPrice;
+ 
+           // Recalculate stop-loss threshold after buying
+           stopLossPrice = btcPrice.bid - StopLossAmount;
+         }
+       }
+
+     }
+   } catch (error) {
+     console.error('Error occurred:', error);
+   }
+}
+
