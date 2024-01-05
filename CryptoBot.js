@@ -6,8 +6,12 @@ class FakeExchange {
     this.dataFile = dataFile;
     this.currentIndex = 0;
     this.data = null;
+    
+    this.btcBalanceInUSDT = 0; //Initial BTC balance in USDT
     this.btcBalance = 0; // Initial BTC balance
     this.usdtBalance = 1000; // Initial USDT balance (just an example)
+    
+    
   }
 
   async loadPriceData() {
@@ -20,22 +24,20 @@ class FakeExchange {
       await this.loadPriceData();
     }
 
-    if (this.currentIndex >= this.data.length) {
-        const sellValue = this.btcBalance * this.lastTickerData.bid; //temporary
-        this.usdtBalance += sellValue;
-      //throw new Error('End of price data reached ' + this.usdtBalance);
-        console.log("end of data", `${this.usdtBalance}USDT, ${this.btcBalance}BTC`)
+    if (this.currentIndex >= this.data.length) {      
+        console.log("end of data", `USDT:${this.usdtBalance}, BTC:${this.btcBalance}, BTCinUSDT:${this.btcBalanceInUSDT}`)
         return process.exit();
     }
 
     const tickerData = this.data[this.currentIndex];
     this.currentIndex++;
-
+ 
     this.lastTickerData = {
-      bid: tickerData.p, // tickerData.bid,
-      ask: tickerData.p, // tickerData.ask,
+      bid: tickerData.p.toFixed(2), // tickerData.bid,
+      ask: tickerData.p.toFixed(2), // tickerData.ask,
       time: tickerData.t,
     };
+    this.btcBalanceInUSDT = this.btcBalance * this.lastTickerData.ask;
     return this.lastTickerData;
   }
 
@@ -50,11 +52,12 @@ class FakeExchange {
   }
 
   async createMarketSellOrder(symbol, amount) {
-    const currentPrice = await this.fetchTicker(symbol);
+    const currentPrice = this.lastTickerData; //await this.fetchTicker(symbol);
     const sellValue = amount * currentPrice.bid;
 
     if (this.btcBalance >= amount) {
       this.btcBalance -= amount;
+      this.btcBalanceInUSDT = 0; //-= sellValue
       this.usdtBalance += sellValue;
       return { amount, price: currentPrice.bid };
     } else {
@@ -63,12 +66,13 @@ class FakeExchange {
   }
 
   async createMarketBuyOrder(symbol, amount) {
-    const currentPrice = await this.fetchTicker(symbol);
+    const currentPrice = this.lastTickerData; //await this.fetchTicker(symbol);
     const buyValue = amount * currentPrice.ask;
 
     if (this.usdtBalance >= buyValue) {
       this.usdtBalance -= buyValue;
       this.btcBalance += amount;
+      this.btcBalanceInUSDT += buyValue
       return { amount, price: currentPrice.ask };
     } else {
       throw new Error('Insufficient USDT balance');
@@ -79,13 +83,13 @@ class FakeExchange {
 // Usage example:
 module.exports = async function tradeBot() {
   const MaxAmountToTrade = 50,
-        StopLossAmount = 2,
-        MaxCandlesToRiseBeforeRebuy = 1;
+        StopLossAmount = 5,
+        MaxCandlesToRiseBeforeRebuy = 2;
 
   const exchange = new FakeExchange('btc-1min-data.json'); // Replace with your JSON file name
 
    // Fetch BTC/USDT symbol for trading
-   const symbol = 'BTC/USDT';
+   const symbol = 'BTC/USDT';   
    let consecutiveRises = 0; // Counter for consecutive price rises
  
    try {
@@ -98,7 +102,7 @@ module.exports = async function tradeBot() {
      let buyOrder = await exchange.createMarketBuyOrder(symbol, btcAmountToBuy);
  
      lastBuyPrice = buyOrder.price;
-     console.log('Bought BTC:', buyOrder);
+     console.log('Bought BTC:', buyOrder,`USDT:${exchange.usdtBalance}, BTC:${exchange.btcBalance}, BTCinUSDT:${exchange.btcBalanceInUSDT}`);
  
      // Calculate stop-loss threshold
      let stopLossPrice = btcPrice.bid - StopLossAmount;
@@ -121,7 +125,7 @@ module.exports = async function tradeBot() {
          
          lastSellPrice = sellOrder.price;
          let profit = lastSellPrice - lastBuyPrice;
-         console.log('Sold BTC due to stop-loss:', sellOrder,`${exchange.usdtBalance}USDT, ${exchange.btcBalance}BTC Profit: ${profit}USDT`);
+         console.log('Sold BTC due to stop-loss:', sellOrder,`USDT:${exchange.usdtBalance}, BTC:${exchange.btcBalance}, BTCinUSDT:${exchange.btcBalanceInUSDT}`);
  
          // Reset consecutiveRises counter after selling BTC due to stop-loss
          consecutiveRises = 0;
@@ -141,7 +145,7 @@ module.exports = async function tradeBot() {
            let buyOrder = await exchange.createMarketBuyOrder(symbol, btcAmountToBuy);
            
            lastBuyPrice = buyOrder.price;
-           console.log('Bought BTC again:', buyOrder,`${exchange.usdtBalance}USDT, ${exchange.btcBalance}BTC`);
+           console.log('Bought BTC again:', buyOrder,`USDT:${exchange.usdtBalance}, BTC:${exchange.btcBalance}, BTCinUSDT:${exchange.btcBalanceInUSDT}`);
  
            // Reset consecutiveRises counter after buying BTC
            consecutiveRises = 0;
