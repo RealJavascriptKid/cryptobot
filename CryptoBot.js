@@ -10,6 +10,9 @@ class FakeExchange {
     this.btcBalanceInUSDT = 0; //Initial BTC balance in USDT
     this.btcBalance = 0; // Initial BTC balance
     this.usdtBalance = 1000; // Initial USDT balance (just an example)
+
+    this.buyTransactionPercent = 0;
+    this.sellTransactionPercent = 0;
     
     
   }
@@ -51,7 +54,21 @@ class FakeExchange {
     };
   }
 
+  calculateTransactionFee(amount,type){
+      if(type === 'buy'){
+        
+        amount = amount - (amount * this.buyTransactionPercent/100) 
+
+      }else{
+
+        amount = amount - (amount * this.sellTransactionPercent/100) 
+
+      }
+      return amount;
+  }
+
   async createMarketSellOrder(symbol, amount) {
+    amount = this.calculateTransactionFee(amount,'sell')
     const currentPrice = this.lastTickerData; //await this.fetchTicker(symbol);
     const sellValue = amount * currentPrice.bid;
 
@@ -66,6 +83,7 @@ class FakeExchange {
   }
 
   async createMarketBuyOrder(symbol, amount) {
+    amount = this.calculateTransactionFee(amount,'buy')
     const currentPrice = this.lastTickerData; //await this.fetchTicker(symbol);
     const buyValue = amount * currentPrice.ask;
 
@@ -120,7 +138,7 @@ module.exports = async function tradeBot() {
        let btcAccomulatedAmount = AmountToAccomulate / currentBtcPrice.ask;
  
        // Check for stop-loss condition
-       if (currentBtcPrice.bid <= stopLossPrice) {
+       if (currentBtcPrice.bid <= stopLossPrice & btcHolding > 0) {
           
          // Exchange all BTC holdings to USDT due to stop-loss
          let sellOrder = await exchange.createMarketSellOrder(symbol, btcHolding);
@@ -132,12 +150,9 @@ module.exports = async function tradeBot() {
          // Reset consecutiveRises counter after selling BTC due to stop-loss
          consecutiveRises = 0;
  
-         // Update BTC price for comparison in the next iteration
-         btcPrice = currentBtcPrice;
- 
          // Recalculate stop-loss threshold after selling due to stop-loss
-         stopLossPrice = btcPrice.bid - (btcPrice.bid * (StopLossPercent/100)) ;
-       } else {
+         stopLossPrice = currentBtcPrice.bid - (currentBtcPrice.bid * (StopLossPercent/100)) ;
+       } else if(currentBtcPrice.bid > btcPrice.bid){
          // BTC price is rising
          consecutiveRises++;
  
@@ -151,17 +166,19 @@ module.exports = async function tradeBot() {
  
            // Reset consecutiveRises counter after buying BTC
            consecutiveRises = 0;
- 
-           // Update BTC price after buying for comparison in the next iteration
-           btcPrice = currentBtcPrice;
- 
+  
            // Recalculate stop-loss threshold after buying
-           stopLossPrice = btcPrice.bid - (btcPrice.bid * (StopLossPercent/100)) ;
+           stopLossPrice = currentBtcPrice.bid - (currentBtcPrice.bid * (StopLossPercent/100)) ;
          }
 
          if(btcHoldingInUSD >= (MaxAmountToTrade + AmountToAccomulate)){
 
+            // let sellAmount = (MaxAmountToTrade + AmountToAccomulate) / currentBtcPrice.ask;
+            // let sellOrder = await exchange.createMarketSellOrder(symbol, sellAmount);
+
             let sellOrder = await exchange.createMarketSellOrder(symbol, btcAccomulatedAmount);
+
+            
          
             lastSellPrice = sellOrder.price;
             
@@ -170,7 +187,12 @@ module.exports = async function tradeBot() {
 
          }
 
+       }else{
+            consecutiveRises = 0;
        }
+
+        // Update BTC price for comparison in the next iteration
+        btcPrice = currentBtcPrice;
 
      }
    } catch (error) {
