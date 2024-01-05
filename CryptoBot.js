@@ -101,7 +101,7 @@ class FakeExchange {
 // Usage example:
 module.exports = async function tradeBot() {
   const MaxAmountToTrade = 50,
-        AmountToAccomulate = 2; //save 2 dollars worth of btc when it is past (AmmountToTrade + AmmountToAccoumulate)
+        AmountToAccomulate = 2; //save x dollars worth of btc when it is past (AmmountToTrade + AmmountToAccoumulate)
         StopLossPercent = 0.01,
         MaxCandlesToRiseBeforeRebuy = 2;
 
@@ -137,6 +137,8 @@ module.exports = async function tradeBot() {
        let btcHoldingInUSD = btcHolding * currentBtcPrice.ask;
        let btcAccomulatedAmount = AmountToAccomulate / currentBtcPrice.ask;
  
+       //console.log(`Price change: ${currentBtcPrice.bid - btcPrice.bid } USD, Current BTC: ${btcHoldingInUSD} USD`)
+
        // Check for stop-loss condition
        if (currentBtcPrice.bid <= stopLossPrice & btcHolding > 0) {
           
@@ -187,7 +189,10 @@ module.exports = async function tradeBot() {
 
          }
 
+         //console.log(`UP $${currentBtcPrice.bid - btcPrice.bid }`)
+
        }else{
+            //console.log(`DOWN $${btcPrice.bid - currentBtcPrice.bid}`)
             consecutiveRises = 0;
        }
 
