@@ -9,10 +9,10 @@ class FakeExchange {
     
     this.btcBalanceInUSDT = 0; //Initial BTC balance in USDT
     this.btcBalance = 0; // Initial BTC balance
-    this.usdtBalance = 1000; // Initial USDT balance (just an example)
+    this.usdtBalance = 50000; // Initial USDT balance (just an example)
 
-    this.buyTransactionPercent = 0;
-    this.sellTransactionPercent = 0;
+    this.buyTransactionPercent = 2;
+    this.sellTransactionPercent = 2;
     
     
   }
@@ -68,9 +68,11 @@ class FakeExchange {
   }
 
   async createMarketSellOrder(symbol, amount) {
-    amount = this.calculateTransactionFee(amount,'sell')
+    
     const currentPrice = this.lastTickerData; //await this.fetchTicker(symbol);
-    const sellValue = amount * currentPrice.bid;
+    let sellValue = amount * currentPrice.bid;
+
+    sellValue = this.calculateTransactionFee(sellValue,'sell')
 
     if (this.btcBalance >= amount) {
       this.btcBalance -= amount;
@@ -83,9 +85,11 @@ class FakeExchange {
   }
 
   async createMarketBuyOrder(symbol, amount) {
-    amount = this.calculateTransactionFee(amount,'buy')
+   
     const currentPrice = this.lastTickerData; //await this.fetchTicker(symbol);
-    const buyValue = amount * currentPrice.ask;
+    let buyValue = amount * currentPrice.ask;
+
+    buyValue = this.calculateTransactionFee(buyValue,'buy')
 
     if (this.usdtBalance >= buyValue) {
       this.usdtBalance -= buyValue;
@@ -100,9 +104,9 @@ class FakeExchange {
 
 // Usage example:
 module.exports = async function tradeBot() {
-  const MaxAmountToTrade = 50,
-        AmountToAccomulate = 2; //save x dollars worth of btc when it is past (AmmountToTrade + AmmountToAccoumulate)
-        StopLossPercent = 0.01,
+  const MaxAmountToTrade = 100,
+        AmountToAccomulate = 5; //save x dollars worth of btc when it is past (AmmountToTrade + AmmountToAccoumulate)
+        StopLossPercent = 0.3,
         MaxCandlesToRiseBeforeRebuy = 2;
 
   const exchange = new FakeExchange('btc-1min-data.json'); // Replace with your JSON file name
@@ -137,7 +141,7 @@ module.exports = async function tradeBot() {
        let btcHoldingInUSD = btcHolding * currentBtcPrice.ask;
        let btcAccomulatedAmount = AmountToAccomulate / currentBtcPrice.ask;
  
-       //console.log(`Price change: ${currentBtcPrice.bid - btcPrice.bid } USD, Current BTC: ${btcHoldingInUSD} USD`)
+      // console.log(`Price change: ${currentBtcPrice.bid - btcPrice.bid } USD, Current BTC: ${btcHoldingInUSD} USD, Time:${JSON.stringify(new Date(currentBtcPrice.time * 1000))}`)
 
        // Check for stop-loss condition
        if (currentBtcPrice.bid <= stopLossPrice & btcHolding > 0) {
@@ -147,7 +151,7 @@ module.exports = async function tradeBot() {
          
          lastSellPrice = sellOrder.price;
          let profit = lastSellPrice - lastBuyPrice;
-         console.log('Sold BTC due to stop-loss:', sellOrder,`USDT:${exchange.usdtBalance}, BTC:${exchange.btcBalance}, BTCinUSDT:${exchange.btcBalanceInUSDT}`);
+         console.log('Sold BTC due to stop-loss:', sellOrder,`USDT:${exchange.usdtBalance}, BTC:${exchange.btcBalance}, BTCinUSDT:${exchange.btcBalanceInUSDT}, Time:${JSON.stringify(new Date(currentBtcPrice.time * 1000))}`);
  
          // Reset consecutiveRises counter after selling BTC due to stop-loss
          consecutiveRises = 0;
@@ -164,7 +168,7 @@ module.exports = async function tradeBot() {
            let buyOrder = await exchange.createMarketBuyOrder(symbol, btcAmountToBuy);
            
            lastBuyPrice = buyOrder.price;
-           console.log('Bought BTC again:', buyOrder,`USDT:${exchange.usdtBalance}, BTC:${exchange.btcBalance}, BTCinUSDT:${exchange.btcBalanceInUSDT}`);
+           console.log('Bought BTC again:', buyOrder,`USDT:${exchange.usdtBalance}, BTC:${exchange.btcBalance}, BTCinUSDT:${exchange.btcBalanceInUSDT}, Time:${JSON.stringify(new Date(currentBtcPrice.time * 1000))}`);
  
            // Reset consecutiveRises counter after buying BTC
            consecutiveRises = 0;
@@ -184,7 +188,7 @@ module.exports = async function tradeBot() {
          
             lastSellPrice = sellOrder.price;
             
-            console.log('Sold BTC due to accoumulation:', sellOrder,`USDT:${exchange.usdtBalance}, BTC:${exchange.btcBalance}, BTCinUSDT:${exchange.btcBalanceInUSDT}`);
+            console.log('Sold BTC due to accoumulation:', sellOrder,`USDT:${exchange.usdtBalance}, BTC:${exchange.btcBalance}, BTCinUSDT:${exchange.btcBalanceInUSDT}, Time:${JSON.stringify(new Date(currentBtcPrice.time * 1000))}`);
     
 
          }
