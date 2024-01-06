@@ -3,7 +3,12 @@ const fs = require('fs').promises;
 // Fake exchange class for simulation mode
 class FakeExchange {
   constructor(dataFile) {
+    this.dataBatch = {
+        activeBatch:0,
+        totalBatches:181
+    }
     this.dataFile = dataFile;
+    
     this.currentIndex = 0;
     this.data = null;
     
@@ -17,9 +22,27 @@ class FakeExchange {
     
   }
 
-  async loadPriceData() {
-    const rawData = await fs.readFile(this.dataFile);
+  async loadPriceData(getNextBatch) {     
+    let rawData;
+    if(this.dataFile){
+       if(getNextBatch) //we are not in BatchMode here
+          return false;
+
+      rawData = await fs.readFile(this.dataFile);
+    }else{
+       //it means it is reading from batch
+       this.dataBatch.activeBatch++;
+       if(this.dataBatch.activeBatch < this.dataBatch.totalBatches){
+          rawData = await fs.readFile(`./data/btc-1min-data${this.dataBatch.activeBatch}.json`);
+          console.log(`Loaded data from Batch: ${this.dataBatch.activeBatch} `,`USDT:${this.usdtBalance}, BTC:${this.btcBalance}, BTCinUSDT:${this.btcBalanceInUSDT}`)
+       }else{
+          return false;
+       }
+    }
+
     this.data = JSON.parse(rawData).data;
+    this.currentIndex = 0;
+    return true; //sucessfully loaded
   }
 
   async fetchTicker(symbol) {
@@ -27,19 +50,28 @@ class FakeExchange {
       await this.loadPriceData();
     }
 
-    if (this.currentIndex >= this.data.length) {      
-        console.log("end of data", `USDT:${this.usdtBalance}, BTC:${this.btcBalance}, BTCinUSDT:${this.btcBalanceInUSDT}`)
-        return process.exit();
+    if (this.currentIndex >= this.data.length) {
+        let loadedNextBatch = await this.loadPriceData(true);      
+        if(!loadedNextBatch){
+          console.log("end of data", `USDT:${this.usdtBalance}, BTC:${this.btcBalance}, BTCinUSDT:${this.btcBalanceInUSDT}`)
+          return process.exit();
+
+        }      
     }
 
     const tickerData = this.data[this.currentIndex];
     this.currentIndex++;
- 
+
+    
+  
+
     this.lastTickerData = {
-      bid: tickerData.p.toFixed(2), // tickerData.bid,
-      ask: tickerData.p.toFixed(2), // tickerData.ask,
+      bid: tickerData.p, // tickerData.bid,
+      ask: tickerData.p, // tickerData.ask,
       time: tickerData.t,
     };
+
+  
     this.btcBalanceInUSDT = this.btcBalance * this.lastTickerData.ask;
     return this.lastTickerData;
   }
@@ -109,16 +141,18 @@ class FakeExchange {
 
 // Usage example:
 module.exports = async function tradeBot() {
-  const MaxAmountToTrade = 100,
-        AmountToAccomulate = 50; //save x dollars worth of btc when it is past (AmmountToTrade + AmmountToAccoumulate)
-        StopLossPercent = 5,
-        MaxCandlesToRiseBeforeRebuy = 2;
+       const MaxAmountToTrade = 100,
+        AmountToAccomulate = 5; //save x dollars worth of btc when it is past (AmmountToTrade + AmmountToAccoumulate)
+        StopLossPercent = 3,
+        MaxCandlesToRiseBeforeRebuy = 2,
+        MaxCandlesToDropBeforeAutosell = 100000,
+        symbol = 'BTC/USDT';
 
-  const exchange = new FakeExchange('btc-1min-data.json'); // Replace with your JSON file name
+  const exchange = new FakeExchange(); // Replace with your JSON file name
 
-   // Fetch BTC/USDT symbol for trading
-   const symbol = 'BTC/USDT';   
+  
    let consecutiveRises = 0; // Counter for consecutive price rises
+   let consecutiveDrops = 0; // Counter for consecutive price drops
  
    try {
 
@@ -160,13 +194,15 @@ module.exports = async function tradeBot() {
  
          // Reset consecutiveRises counter after selling BTC due to stop-loss
          consecutiveRises = 0;
+         consecutiveDrops++;
  
          // Recalculate stop-loss threshold after selling due to stop-loss
          stopLossPrice = currentBtcPrice.bid - (currentBtcPrice.bid * (StopLossPercent/100)) ;
        } else if(currentBtcPrice.bid > btcPrice.bid){
          // BTC price is rising
          consecutiveRises++;
- 
+         consecutiveDrops=0;
+
          // Check for two consecutive price rises
          if (consecutiveRises === MaxCandlesToRiseBeforeRebuy && btcHolding == 0) {
            let btcAmountToBuy = MaxAmountToTrade / currentBtcPrice.ask;
@@ -203,6 +239,17 @@ module.exports = async function tradeBot() {
        }else{
             //console.log(`DOWN $${btcPrice.bid - currentBtcPrice.bid}`)
             consecutiveRises = 0;
+            consecutiveDrops++;
+            if(consecutiveDrops == MaxCandlesToDropBeforeAutosell && btcHolding > 0){
+                // Exchange all BTC holdings to USDT due to stop-loss
+                let sellOrder = await exchange.createMarketSellOrder(symbol, btcHolding);
+                
+                lastSellPrice = sellOrder.price;
+                let profit = lastSellPrice - lastBuyPrice;
+                console.log('Sold BTC due to consecutive drops:', sellOrder,`USDT:${exchange.usdtBalance}, BTC:${exchange.btcBalance}, BTCinUSDT:${exchange.btcBalanceInUSDT}, Time:${JSON.stringify(new Date(currentBtcPrice.time * 1000))}`);
+        
+         
+            }
        }
 
         // Update BTC price for comparison in the next iteration
