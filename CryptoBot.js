@@ -11,8 +11,8 @@ class FakeExchange {
     this.btcBalance = 0; // Initial BTC balance
     this.usdtBalance = 50000; // Initial USDT balance (just an example)
 
-    this.buyTransactionPercent = 10;
-    this.sellTransactionPercent = 10;
+    this.buyTransactionPercent = 0.7;
+    this.sellTransactionPercent = 0.7;
     
     
   }
@@ -58,13 +58,13 @@ class FakeExchange {
       let amountInUSDT = convFactor * amount;
       if(type === 'buy'){
         
-        //amountInUSDT = amountInUSDT - (amountInUSDT * this.buyTransactionPercent/100) 
-        amountInUSDT = amountInUSDT - this.buyTransactionPercent 
+        amountInUSDT = amountInUSDT - (amountInUSDT * this.buyTransactionPercent/100) 
+        //amountInUSDT = amountInUSDT - this.buyTransactionPercent 
 
       }else{
 
-        //amountInUSDT = amountInUSDT - (amountInUSDT * this.sellTransactionPercent/100) 
-        amountInUSDT = amountInUSDT - this.sellTransactionPercent 
+        amountInUSDT = amountInUSDT - (amountInUSDT * this.sellTransactionPercent/100) 
+        //amountInUSDT = amountInUSDT - this.sellTransactionPercent 
 
       }
       amount =  amountInUSDT / convFactor;
