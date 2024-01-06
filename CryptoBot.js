@@ -11,8 +11,8 @@ class FakeExchange {
     this.btcBalance = 0; // Initial BTC balance
     this.usdtBalance = 50000; // Initial USDT balance (just an example)
 
-    this.buyTransactionPercent = 2;
-    this.sellTransactionPercent = 2;
+    this.buyTransactionPercent = 0;
+    this.sellTransactionPercent = 0;
     
     
   }
@@ -54,25 +54,28 @@ class FakeExchange {
     };
   }
 
-  calculateTransactionFee(amount,type){
+  calculateTransactionFee(amount,convFactor,type){
+      let amountInUSDT = convFactor * amount;
       if(type === 'buy'){
         
-        amount = amount - (amount * this.buyTransactionPercent/100) 
+        amountInUSDT = amountInUSDT - (amountInUSDT * this.buyTransactionPercent/100) 
 
       }else{
 
-        amount = amount - (amount * this.sellTransactionPercent/100) 
+        amountInUSDT = amountInUSDT - (amountInUSDT * this.sellTransactionPercent/100) 
 
       }
+      amount =  amountInUSDT / convFactor;
       return amount;
   }
 
   async createMarketSellOrder(symbol, amount) {
     
     const currentPrice = this.lastTickerData; //await this.fetchTicker(symbol);
-    let sellValue = amount * currentPrice.bid;
 
-    sellValue = this.calculateTransactionFee(sellValue,'sell')
+    amount = this.calculateTransactionFee(amount,currentPrice.bid,'sell')
+
+    const sellValue = amount * currentPrice.bid;
 
     if (this.btcBalance >= amount) {
       this.btcBalance -= amount;
@@ -85,11 +88,11 @@ class FakeExchange {
   }
 
   async createMarketBuyOrder(symbol, amount) {
-   
+    
     const currentPrice = this.lastTickerData; //await this.fetchTicker(symbol);
-    let buyValue = amount * currentPrice.ask;
 
-    buyValue = this.calculateTransactionFee(buyValue,'buy')
+    amount = this.calculateTransactionFee(amount,currentPrice.ask,'buy')
+    const buyValue = amount * currentPrice.ask;
 
     if (this.usdtBalance >= buyValue) {
       this.usdtBalance -= buyValue;
