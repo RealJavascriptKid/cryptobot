@@ -11,8 +11,8 @@ class FakeExchange {
     this.btcBalance = 0; // Initial BTC balance
     this.usdtBalance = 50000; // Initial USDT balance (just an example)
 
-    this.buyTransactionPercent = 0;
-    this.sellTransactionPercent = 0;
+    this.buyTransactionPercent = 10;
+    this.sellTransactionPercent = 10;
     
     
   }
@@ -58,11 +58,13 @@ class FakeExchange {
       let amountInUSDT = convFactor * amount;
       if(type === 'buy'){
         
-        amountInUSDT = amountInUSDT - (amountInUSDT * this.buyTransactionPercent/100) 
+        //amountInUSDT = amountInUSDT - (amountInUSDT * this.buyTransactionPercent/100) 
+        amountInUSDT = amountInUSDT - this.buyTransactionPercent 
 
       }else{
 
-        amountInUSDT = amountInUSDT - (amountInUSDT * this.sellTransactionPercent/100) 
+        //amountInUSDT = amountInUSDT - (amountInUSDT * this.sellTransactionPercent/100) 
+        amountInUSDT = amountInUSDT - this.sellTransactionPercent 
 
       }
       amount =  amountInUSDT / convFactor;
@@ -108,8 +110,8 @@ class FakeExchange {
 // Usage example:
 module.exports = async function tradeBot() {
   const MaxAmountToTrade = 100,
-        AmountToAccomulate = 5; //save x dollars worth of btc when it is past (AmmountToTrade + AmmountToAccoumulate)
-        StopLossPercent = 0.3,
+        AmountToAccomulate = 50; //save x dollars worth of btc when it is past (AmmountToTrade + AmmountToAccoumulate)
+        StopLossPercent = 5,
         MaxCandlesToRiseBeforeRebuy = 2;
 
   const exchange = new FakeExchange('btc-1min-data.json'); // Replace with your JSON file name
